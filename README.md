@@ -24,20 +24,20 @@ cp .env.example .env
 
 ```text
 # 必需：设置AI模型API密钥以启用智能分析
+MODEL_TYPE="deepseek"
 
-# 使用Gemini模型（默认）
-MODEL_TYPE="gemini"
-GEMINI_API_KEY="your-gemini-api-key"
+# 使用Gemini模型
+GEMINI_API_KEY="xxx"
 GEMINI_MODEL_NAME="gemini-2.5-pro"
 
 # 使用OpenAI模型
-MODEL_TYPE="openai"
-OPENAI_API_KEY="your-openai-api-key"
-OPENAI_MODEL_NAME="gpt-4"
-OPENAI_BASE_URL="" # 可选：自定义API端点
+OPENAI_API_KEY="xxx"
+OPENAI_MODEL_NAME="gpt-4o"
+OPENAI_BASE_URL=""
 
+# 默认使用DeepSeek模型
 DEEPSEEK_API_KEY=""
-DEEPSEEK_MODEL_NAME="deepseek-r1"
+DEEPSEEK_MODEL_NAME="deepseek-reasoner"
 
 # 可选：设置FinancialDatasets.ai API密钥获取更丰富的金融数据
 FINANCIAL_DATASETS_API_KEY="your-api-key"
