@@ -1,0 +1,9 @@
+.env
+.DS
+.vscode
+.DS_Store
+output
+output/*
+
+# binary
+investment
