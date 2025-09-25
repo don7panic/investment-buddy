@@ -5,13 +5,12 @@
 ## 功能特性
 
 - 🤖 **React Agent智能分析** - 基于多步推理的智能投资决策流程
-- 🎯 **多模型切换支持** - Gemini和OpenAI模型灵活切换使用
-- 📈 **全面财务数据** - 市值、财务指标、公司新闻、基本面分析
+- 🎯 **多模型切换支持** - 支持Gemini、OpenAI和DeepSeek模型
+- 📈 **全面财务数据** - 市值、财务指标、公司新闻、基本面分析  
 - 📊 **自动报告生成** - 分析结果自动保存为markdown格式报告
 - 🔍 **巴菲特性投资分析** - 遵循价值投资理念的分析框架
-- 🌐 **外部数据集成** - 集成FinancialDatasets.ai等金融数据源
+- 🌐 **外部数据集成** - 集成FinancialDatasets.ai金融数据源
 - 💬 **中文交互** - 全中文界面和报告输出
-- 💾 **数据缓存机制** - 本地保存API响应便于离线分析
 
 ## 使用方法
 
@@ -36,6 +35,9 @@ MODEL_TYPE="openai"
 OPENAI_API_KEY="your-openai-api-key"
 OPENAI_MODEL_NAME="gpt-4"
 OPENAI_BASE_URL="" # 可选：自定义API端点
+
+DEEPSEEK_API_KEY=""
+DEEPSEEK_MODEL_NAME="deepseek-r1"
 
 # 可选：设置FinancialDatasets.ai API密钥获取更丰富的金融数据
 FINANCIAL_DATASETS_API_KEY="your-api-key"

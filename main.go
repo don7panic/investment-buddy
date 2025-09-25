@@ -59,8 +59,10 @@ func main() {
 		chatModel = createGeminiChatModel(ctx)
 	case "openai":
 		chatModel = createOpenAIChatModel(ctx)
+	case "deepseek":
+		chatModel = createDeepseekChatModel(ctx)
 	default:
-		chatModel = createGeminiChatModel(ctx)
+		chatModel = createDeepseekChatModel(ctx)
 	}
 	log.Printf("Using model: %s", modelType)
 
