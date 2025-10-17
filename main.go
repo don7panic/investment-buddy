@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -212,11 +214,76 @@ func analyzeWithReactAgent(ctx context.Context, chatModel model.ToolCallingChatM
 	fmt.Printf("🤖 启动 React Agent 进行智能分析...\n")
 	fmt.Printf("📈 Agent 将自动收集数据、进行分析并生成报告\n\n")
 
-	// 使用 React Agent 进行分析
-	result, err := agent.Generate(ctx, messages)
+	// 使用 React Agent 的流式输出能力
+	stream, err := agent.Stream(ctx, messages)
 	if err != nil {
-		return "", fmt.Errorf("analyze failed with React Agent: %v", err)
+		return "", fmt.Errorf("analyze failed with React Agent stream: %v", err)
+	}
+	defer stream.Close()
+
+	fmt.Printf("📝 正在流式生成分析报告内容...\n\n")
+
+	var (
+		streamMessages []*schema.Message
+		builder        strings.Builder
+	)
+
+	for {
+		chunk, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("接收流式内容失败: %v", err)
+		}
+		if chunk == nil {
+			continue
+		}
+
+		textChunk := extractMessageText(chunk)
+		if textChunk != "" {
+			fmt.Print(textChunk)
+			builder.WriteString(textChunk)
+		}
+
+		streamMessages = append(streamMessages, chunk)
 	}
 
-	return result.Content, nil
+	fmt.Printf("\n\n📦 正在整理完整分析结果...\n")
+
+	if len(streamMessages) == 0 {
+		return "", fmt.Errorf("React Agent 没有返回任何内容")
+	}
+
+	mergedMessage, err := schema.ConcatMessages(streamMessages)
+	if err != nil {
+		return "", fmt.Errorf("合并流式内容失败: %v", err)
+	}
+
+	finalText := extractMessageText(mergedMessage)
+	if finalText == "" {
+		finalText = builder.String()
+	}
+
+	return finalText, nil
+}
+
+func extractMessageText(msg *schema.Message) string {
+	if msg == nil {
+		return ""
+	}
+
+	if len(msg.MultiContent) > 0 {
+		var builder strings.Builder
+		for _, part := range msg.MultiContent {
+			if part.Type == schema.ChatMessagePartTypeText {
+				builder.WriteString(part.Text)
+			}
+		}
+		if builder.Len() > 0 {
+			return builder.String()
+		}
+	}
+
+	return msg.Content
 }
