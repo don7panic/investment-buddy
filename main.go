@@ -64,10 +64,10 @@ func main() {
 	}
 
 	// 输出分析结果
-	fmt.Print("\n" + strings.Repeat("=", 50) + "\n")
-	fmt.Printf("📊 投资分析报告\n")
-	fmt.Print(strings.Repeat("=", 50) + "\n")
-	fmt.Printf("%s\n", result)
+	// fmt.Print("\n" + strings.Repeat("=", 50) + "\n")
+	// fmt.Printf("📊 投资分析报告\n")
+	// fmt.Print(strings.Repeat("=", 50) + "\n")
+	// fmt.Printf("%s\n", result)
 	fmt.Print(strings.Repeat("=", 50) + "\n")
 	fmt.Printf("✅ 分析完成\n")
 
@@ -149,13 +149,35 @@ func analyzeWithReactAgent(ctx context.Context, chatModel model.ToolCallingChatM
 	}
 	investmentTools = append(investmentTools, fundamentalTool)
 
+	toolCallChecker := func(ctx context.Context, sr *schema.StreamReader[*schema.Message]) (bool, error) {
+		defer sr.Close()
+		for {
+			msg, err := sr.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					// finish
+					break
+				}
+
+				return false, err
+			}
+
+			if len(msg.ToolCalls) > 0 {
+				return true, nil
+			}
+		}
+
+		return false, nil
+	}
+
 	// 创建 React Agent
 	agent, err := react.NewAgent(ctx, &react.AgentConfig{
 		ToolCallingModel: chatModel,
 		ToolsConfig: compose.ToolsNodeConfig{
 			Tools: investmentTools,
 		},
-		MaxStep: 10, // 最大推理步数，允许多步骤分析
+		StreamToolCallChecker: toolCallChecker,
+		MaxStep:               10, // 最大推理步数，允许多步骤分析
 	})
 	if err != nil {
 		return "", fmt.Errorf("创建 React Agent 失败: %v", err)
@@ -215,75 +237,40 @@ func analyzeWithReactAgent(ctx context.Context, chatModel model.ToolCallingChatM
 	fmt.Printf("📈 Agent 将自动收集数据、进行分析并生成报告\n\n")
 
 	// 使用 React Agent 的流式输出能力
-	stream, err := agent.Stream(ctx, messages)
+	opts, future := react.WithMessageFuture()
+	stream, err := agent.Stream(ctx, messages, opts)
 	if err != nil {
 		return "", fmt.Errorf("analyze failed with React Agent stream: %v", err)
 	}
 	defer stream.Close()
 
-	fmt.Printf("📝 正在流式生成分析报告内容...\n\n")
-
-	var (
-		streamMessages []*schema.Message
-		builder        strings.Builder
-	)
-
+	// Get message streams from future
+	sIter := future.GetMessageStreams()
 	for {
-		chunk, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
+		s, hasNext, err := sIter.Next()
+		if err != nil {
+			return "", err
+		}
+		if !hasNext {
 			break
 		}
+
+		msg, err := schema.ConcatMessageStream(s)
 		if err != nil {
-			return "", fmt.Errorf("接收流式内容失败: %v", err)
+			return "", err
 		}
-		if chunk == nil {
+		if msg.Role == schema.Tool {
+			fmt.Printf("Tool %s called\n", msg.ToolName)
 			continue
 		}
-
-		textChunk := extractMessageText(chunk)
-		if textChunk != "" {
-			fmt.Print(textChunk)
-			builder.WriteString(textChunk)
+		if msg.Content != "" {
+			fmt.Println(msg.Content)
 		}
-
-		streamMessages = append(streamMessages, chunk)
+		// fmt.Printf("recv msg: role: %v, content: %v\n", msg.Role, msg.Content)
 	}
-
-	fmt.Printf("\n\n📦 正在整理完整分析结果...\n")
-
-	if len(streamMessages) == 0 {
-		return "", fmt.Errorf("React Agent 没有返回任何内容")
-	}
-
-	mergedMessage, err := schema.ConcatMessages(streamMessages)
+	finalResponse, err := schema.ConcatMessageStream(stream)
 	if err != nil {
-		return "", fmt.Errorf("合并流式内容失败: %v", err)
+		return "", err
 	}
-
-	finalText := extractMessageText(mergedMessage)
-	if finalText == "" {
-		finalText = builder.String()
-	}
-
-	return finalText, nil
-}
-
-func extractMessageText(msg *schema.Message) string {
-	if msg == nil {
-		return ""
-	}
-
-	if len(msg.MultiContent) > 0 {
-		var builder strings.Builder
-		for _, part := range msg.MultiContent {
-			if part.Type == schema.ChatMessagePartTypeText {
-				builder.WriteString(part.Text)
-			}
-		}
-		if builder.Len() > 0 {
-			return builder.String()
-		}
-	}
-
-	return msg.Content
+	return finalResponse.Content, nil
 }
